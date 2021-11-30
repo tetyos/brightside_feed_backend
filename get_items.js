@@ -65,7 +65,7 @@ async function executeLogic(event) {
     "headers": {
       "Content-Type": "application/json; charset=utf-8"
     },
-    "body":  JSON.stringify(itemsArray, null, 2),
+    "body":  JSON.stringify(itemsArray),
   };
   return response;
 };
