@@ -11,9 +11,11 @@ const { atlas_connection_uri } = require('./connection_strings');
 
 const event = {
   body: "[{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\", \"ItemCategory.mobility\"]}]",
+  rawPath: "/get_init_data",
 }
 const event2 = {
   body: "[{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\"]}, {\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\"]}]",
+  rawPath: "/get_init_data",
 }
 const event3 = {
   body : "[{\"limit\" : 3, \"sortBy\" : \"dateAdded\"}]",
@@ -24,7 +26,13 @@ const event3 = {
           sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"}
         }
       }
-    }
+    },
+  rawPath: "/get_init_data_authorized",
+}
+
+const event4 = {
+  body : "[{\"limit\" : 3, \"sortBy\" : \"dateAdded\", \"incubatorStatus\" : \"unsafe\"}]",
+  rawPath: "/get_init_data",
 }
 
 
@@ -55,7 +63,9 @@ async function test(event) {
 
 async function executeLogic(event) {
   console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
-  var userId = event.requestContext.authorizer.jwt.claims.sub;
+  if (event.rawPath === "/get_init_data_authorized") {
+    var userId = event.requestContext.authorizer.jwt.claims.sub;
+  }
   var jsonContents = JSON.parse(event.body);
 
   const allItems = {}
@@ -101,6 +111,12 @@ async function getItemsFromDB(searchQuery, idsForCurrentQuery, allItems) {
 
   if (searchQuery.dateLT != null) {
     query.dateAdded = {$lt: new Date(searchQuery.dateLT)};
+  }
+
+  if (searchQuery.incubatorStatus == null) {
+    query.incubatorStatus = { $exists: false };
+  } else {
+    query.incubatorStatus = searchQuery.incubatorStatus;
   }
 
   var callback = function(item) { 

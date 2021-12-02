@@ -55,7 +55,9 @@ async function test(event) {
 
 async function executeLogic(event) {
   console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
-  var userId = event.requestContext.authorizer.jwt.claims.sub;
+  if (event.rawPath === "/get_init_data_authorized") {
+    var userId = event.requestContext.authorizer.jwt.claims.sub;
+  }
 
   var searchQuery = JSON.parse(event.body);
   const itemsArray = await getItemsFromDB(searchQuery, userId);
@@ -88,6 +90,13 @@ async function getItemsFromDB(searchQuery, userId) {
   if (searchQuery.dateLT != null) {
     query.dateAdded = {$lt: new Date(searchQuery.dateLT)};
   }
+
+  if (searchQuery.incubatorStatus == null) {
+    query.incubatorStatus = { $exists: false };
+  } else {
+    query.incubatorStatus = searchQuery.incubatorStatus;
+  }
+
   if (userId) {
     return await fetchItemsWithVotes(userId, query, sortObject, resultLimit);
   } else {
