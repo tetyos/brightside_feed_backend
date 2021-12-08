@@ -250,7 +250,7 @@ function isValidRequest(requestInfos) {
   if (requestInfos.itemId == null || voteCategory == null || inc == null) {
     return false;
   }
-  if (!(voteCategory === "upVote" || voteCategory === "impactNom")) {
+  if (!(voteCategory === "upVote" || voteCategory === "impactNom" || voteCategory === "inspiringNom" || voteCategory === "wellWrittenNom")) {
     return false;
   }
   if (!(inc === true || inc === false)) {
@@ -268,6 +268,12 @@ function createItemUpdate(voteCategory, isIncrease) {
       break;
     case "impactNom":
       itemFieldToUpdate = "impactNoms";
+      break;
+    case "inspiringNom":
+      itemFieldToUpdate = "inspiringNoms";
+      break;
+    case "wellWrittenNom":
+      itemFieldToUpdate = "wellWrittenNoms";
       break;
   }
   var incAmount = isIncrease ? 1 : -1;

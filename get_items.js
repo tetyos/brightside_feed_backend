@@ -55,7 +55,7 @@ async function test(event) {
 
 async function executeLogic(event) {
   console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
-  if (event.rawPath === "/get_init_data_authorized") {
+  if (event.rawPath === "/get_items_authorized") {
     var userId = event.requestContext.authorizer.jwt.claims.sub;
   }
 
