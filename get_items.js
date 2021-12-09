@@ -1,5 +1,6 @@
 // Import the MongoDB driver and other stuff
 const MongoClient = require("mongodb").MongoClient;
+const ObjectId = require('mongodb').ObjectId;
 
 // Once we connect to the database once, we'll store that connection and reuse it so that we don't have to connect to the database on every request.
 let cachedDb = null;
@@ -15,11 +16,11 @@ const event = {
 const event2 = {
   body: "{\"limit\" : 15, \"sortBy\" : \"dateAdded\", \"dateLT\":\"2021-11-24T22:23:57.322Z\", \"dateGT\":\"2021-11-07T14:39:14.869661\", \"voteType\": \"upVotes\"}",
 }
-const event4 = {
+const event3 = {
   body: "{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\"], \"incubatorStatus\" : \"inc1\", \"dateLT\":\"2021-11-24T22:23:57.322Z\", \"dateGT\":\"2021-11-07T14:39:14.869661\"}",
 }
-const event3 = {
-  body : "{\"limit\" : 3, \"sortBy\" : \"dateAdded\"}",
+const event4 = {
+  body : "{\"limit\" : 3, \"skip\" : 1, \"sortBy\" : \"lastVoteOn\", \"isFetchUserLikes\" : \"true\"}",
   requestContext : {
     authorizer: { 
       jwt: {
@@ -27,10 +28,11 @@ const event3 = {
           sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"}
         }
       }
-    }
+    },
+  rawPath: "/get_items_authorized",
 }
 
-test(event2).then(result => console.log(result));
+test(event4).then(result => console.log(result));
 
 async function connectToDatabase() {
   if (cachedDb) {
@@ -88,7 +90,9 @@ async function getItemsFromDB(searchQuery, userId) {
 
   var query = buildMongoQuery(searchQuery);
 
-  if (userId) {
+  if (userId && searchQuery.isFetchUserLikes) {
+    return await fetchUserLikes(userId, sortObject, resultLimit, searchQuery.skip);
+  } else if (userId) {
     return await fetchItemsWithVotes(userId, query, sortObject, resultLimit);
   } else {
     return await cachedDb.collection('items').find(query).sort(sortObject).limit(resultLimit).toArray();
@@ -97,24 +101,51 @@ async function getItemsFromDB(searchQuery, userId) {
 
 async function fetchItemsWithVotes(userId, query, sortObject, resultLimit) {
   var items = {};
-    var itemIds = [];
-    var callback = function(item) { 
-      const itemId = item._id;
-      itemIds.push(itemId.toString());
-      items[itemId] = item;
-    };
-    await cachedDb.collection('items').find(query).sort(sortObject).limit(resultLimit).forEach(callback);
-    var voteQuery = {
-      userId: userId,
-      itemId: {$in:itemIds}
-    }
-    var voteCallback = function(voteItem) { 
-      const itemId = voteItem.itemId;
-      const item = items[itemId];
-      item['userVotes'] = voteItem.votes;
-    };
-    await cachedDb.collection('user_votes').find(voteQuery).forEach(voteCallback);
-    return Object.values(items);
+  var itemIds = [];
+  var callback = function(item) { 
+    const itemId = item._id;
+    itemIds.push(itemId.toString());
+    items[itemId] = item;
+  };
+  await cachedDb.collection('items').find(query).sort(sortObject).limit(resultLimit).forEach(callback);
+  var voteQuery = {
+    userId: userId,
+    itemId: {$in:itemIds}
+  }
+  var voteCallback = function(voteItem) { 
+    const itemId = voteItem.itemId;
+    const item = items[itemId];
+    item['userVotes'] = voteItem.votes;
+  };
+  await cachedDb.collection('user_votes').find(voteQuery).forEach(voteCallback);
+  return Object.values(items);
+}
+
+async function fetchUserLikes(userId, sortObject, resultLimit, skip) {
+  var items = {};
+  var likedItemOids = [];
+  var callback = function(voteItem) { 
+    const likedItemId = voteItem.itemId;
+    likedItemOids.push(new ObjectId(likedItemId))
+    items[likedItemId] = voteItem;
+  };
+  await cachedDb.collection('user_votes')
+                .find({userId: userId})
+                .sort(sortObject)
+                .skip(skip ? skip : 0)
+                .limit(resultLimit)
+                .forEach(callback);
+  var voteQuery = {
+    _id: {$in:likedItemOids}
+  }
+  var voteCallback = function(likedItem) {
+    const itemId = likedItem._id;
+    const userVotes = items[itemId].votes;
+    likedItem['userVotes'] = userVotes;
+    items[itemId] = likedItem;
+  };
+  await cachedDb.collection('items').find(voteQuery).forEach(voteCallback);
+  return Object.values(items);
 }
 
 function buildMongoQuery(searchQuery) {

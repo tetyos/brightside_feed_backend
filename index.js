@@ -4,6 +4,7 @@
 
 // Import the MongoDB driver
 const MongoClient = require("mongodb").MongoClient;
+const ObjectId = require('mongodb').ObjectId;
 // Once we connect to the database once, we'll store that connection and reuse it so that we don't have to connect to the database on every request.
 let cachedDb = null;
 let atlas_connection_uri;
