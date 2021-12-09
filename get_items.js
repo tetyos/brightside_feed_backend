@@ -13,7 +13,10 @@ const event = {
   body: "{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\", \"ItemCategory.mobility\"]}",
 }
 const event2 = {
-  body: "{\"limit\" : 2, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\"]}",
+  body: "{\"limit\" : 15, \"sortBy\" : \"dateAdded\", \"dateLT\":\"2021-11-24T22:23:57.322Z\", \"dateGT\":\"2021-11-07T14:39:14.869661\", \"voteType\": \"upVotes\"}",
+}
+const event4 = {
+  body: "{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\"], \"incubatorStatus\" : \"inc1\", \"dateLT\":\"2021-11-24T22:23:57.322Z\", \"dateGT\":\"2021-11-07T14:39:14.869661\"}",
 }
 const event3 = {
   body : "{\"limit\" : 3, \"sortBy\" : \"dateAdded\"}",
@@ -27,7 +30,7 @@ const event3 = {
     }
 }
 
-test(event3).then(result => console.log(result));
+test(event2).then(result => console.log(result));
 
 async function connectToDatabase() {
   if (cachedDb) {
@@ -83,19 +86,7 @@ async function getItemsFromDB(searchQuery, userId) {
   
   var resultLimit = searchQuery.limit != null ? searchQuery.limit : 20;
 
-  var categories = searchQuery.categories;
-  var hasCategories = categories != null && categories.length != 0;
-  var query = hasCategories ? {"itemCategory" : { $in : categories }} : {};
-
-  if (searchQuery.dateLT != null) {
-    query.dateAdded = {$lt: new Date(searchQuery.dateLT)};
-  }
-
-  if (searchQuery.incubatorStatus == null) {
-    query.incubatorStatus = { $exists: false };
-  } else {
-    query.incubatorStatus = searchQuery.incubatorStatus;
-  }
+  var query = buildMongoQuery(searchQuery);
 
   if (userId) {
     return await fetchItemsWithVotes(userId, query, sortObject, resultLimit);
@@ -124,4 +115,40 @@ async function fetchItemsWithVotes(userId, query, sortObject, resultLimit) {
     };
     await cachedDb.collection('user_votes').find(voteQuery).forEach(voteCallback);
     return Object.values(items);
+}
+
+function buildMongoQuery(searchQuery) {
+  var mongoQuery = {};
+
+  // categories
+  var categories = searchQuery.categories;
+  var hasCategories = categories != null && categories.length != 0;
+  if (hasCategories) {
+    mongoQuery.itemCategory = { $in : categories };
+  }
+
+  // date
+  var dateQuery = {};
+  if (searchQuery.dateLT != null) {
+    dateQuery["$lt"] = new Date(searchQuery.dateLT);
+    mongoQuery.dateAdded = dateQuery;
+  }
+  if (searchQuery.dateGT != null) {
+    dateQuery["$gt"] = new Date(searchQuery.dateGT);
+    mongoQuery.dateAdded = dateQuery;
+  }
+
+  // incubator status
+  if (searchQuery.incubatorStatus == null) {
+    mongoQuery.incubatorStatus = { $exists: false };
+  } else {
+    mongoQuery.incubatorStatus = searchQuery.incubatorStatus;
+  }
+
+  // voteType
+  if (searchQuery.voteType != null) {
+    mongoQuery[searchQuery.voteType] =  {$gt: 0};
+  }
+
+  return mongoQuery;
 }

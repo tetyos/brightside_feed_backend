@@ -105,19 +105,7 @@ async function getItemsFromDB(searchQuery, idsForCurrentQuery, allItems) {
   
   var resultLimit = searchQuery.limit != null ? searchQuery.limit : 20;
 
-  var categories = searchQuery.categories;
-  var hasCategories = categories != null && categories.length != 0;
-  var query = hasCategories ? {"itemCategory" : { $in : categories }} : {};
-
-  if (searchQuery.dateLT != null) {
-    query.dateAdded = {$lt: new Date(searchQuery.dateLT)};
-  }
-
-  if (searchQuery.incubatorStatus == null) {
-    query.incubatorStatus = { $exists: false };
-  } else {
-    query.incubatorStatus = searchQuery.incubatorStatus;
-  }
+  var query = buildMongoQuery(searchQuery);
 
   var callback = function(item) { 
     const itemId = item._id;
@@ -138,4 +126,40 @@ async function addVotesToItems(userId, items) {
       item['userVotes'] = voteItem.votes;
     };
     await cachedDb.collection('user_votes').find(voteQuery).forEach(voteCallback);
+}
+
+function buildMongoQuery(searchQuery) {
+  var mongoQuery = {};
+
+  // categories
+  var categories = searchQuery.categories;
+  var hasCategories = categories != null && categories.length != 0;
+  if (hasCategories) {
+    mongoQuery.itemCategory = { $in : categories };
+  }
+
+  // date
+  var dateQuery = {};
+  if (searchQuery.dateLT != null) {
+    dateQuery["$lt"] = new Date(searchQuery.dateLT);
+    mongoQuery.dateAdded = dateQuery;
+  }
+  if (searchQuery.dateGT != null) {
+    dateQuery["$gt"] = new Date(searchQuery.dateGT);
+    mongoQuery.dateAdded = dateQuery;
+  }
+
+  // incubator status
+  if (searchQuery.incubatorStatus == null) {
+    mongoQuery.incubatorStatus = { $exists: false };
+  } else {
+    mongoQuery.incubatorStatus = searchQuery.incubatorStatus;
+  }
+
+  // voteType
+  if (searchQuery.voteType != null) {
+    mongoQuery[searchQuery.voteType] =  {$gt: 0};
+  }
+
+  return mongoQuery;
 }
