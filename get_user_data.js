@@ -63,6 +63,10 @@ async function executeLogic(event) {
     votes[itemId] = item;
    };
   await cachedDb.collection('user_votes').find(query).forEach(callback);
+  const userData = {}
+  userData.votes = votes;
+  var userDoc = await cachedDb.collection('user').findOne({_id : userId});
+  userData.userDoc = userDoc;
 
   const response = {
     "statusCode": 200,
@@ -70,7 +74,7 @@ async function executeLogic(event) {
     "headers": {
       "Content-Type": "application/json; charset=utf-8"
     },
-    "body":  JSON.stringify(votes),
+    "body":  JSON.stringify(userData),
   };
   return response;
 };

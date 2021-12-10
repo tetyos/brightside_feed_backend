@@ -78,12 +78,17 @@ async function executeLogic(event) {
 
   if (userId) {
     await addVotesToItems(userId, allItems);
+    var userDoc = await cachedDb.collection('user').findOne({_id : userId});
   }
 
   const responseObject = {
     queriesToItemIds: queriesToItemIds,
-    items: allItems
+    items: allItems,
   }
+  if (userId) {
+    responseObject.userDoc = userDoc;
+  }
+
   const response = {
     "statusCode": 200,
     "headers": {
