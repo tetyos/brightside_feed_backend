@@ -60,7 +60,7 @@ async function executeLogic(event) {
   if (!isValidRequest(requestInfos)) {
     var responseNonValid = {
       statusCode: 400,
-      body: "Non valid request body.",
+      body: "Invalid request body.",
     };
     return responseNonValid;
   }
