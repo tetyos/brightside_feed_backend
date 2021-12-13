@@ -15,13 +15,27 @@ const event = {
     authorizer: { 
       jwt: {
         claims: {
-          sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"}
+          sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"
         }
       }
     }
+  }
+}
+const eventNewUser = {
+  body : "[\"61a3332cd30357b30b3b78e0\",\"61a2bf93a4dcd363df7755bb\",\"61a2bd940a92ccf29ea2ed63\"]",
+  requestContext : {
+    authorizer: { 
+      jwt: {
+        claims: {
+          sub: "22686d7f-8e3e-4f67-854b-0a1918d809c",
+          email: "renfilpe@hotmail.de",
+        }
+      }
+    }
+  }
 }
 
-test(event).then(result => console.log(result));
+test(eventNewUser).then(result => console.log(result));
 
 async function connectToDatabase() {
   if (cachedDb) {
@@ -49,24 +63,36 @@ async function test(event) {
 async function executeLogic(event) {
   console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
   var userId = event.requestContext.authorizer.jwt.claims.sub;
+  var mail = event.requestContext.authorizer.jwt.claims.email;
 
   var itemsIdArray = JSON.parse(event.body);
   
   var query = {
     userId: userId,
     itemId: {$in:itemsIdArray}
-  }
+  };
 
-  const votes = {}
+  const votes = {};
   var callback = function(item) { 
     const itemId = item.itemId;
     votes[itemId] = item;
    };
   await cachedDb.collection('user_votes').find(query).forEach(callback);
-  const userData = {}
+  const userData = {};
   userData.votes = votes;
   var userDoc = await cachedDb.collection('user').findOne({_id : userId});
-  userData.userDoc = userDoc;
+  
+  if (userDoc == null) {
+    const newUserDoc = {
+      _id: userId,
+      email: mail,
+      signupDate: new Date(),
+    };
+    await cachedDb.collection('user').insertOne(newUserDoc);
+    userData.userDoc = newUserDoc;
+  } else {
+    userData.userDoc = userDoc;
+  }
 
   const response = {
     "statusCode": 200,
@@ -77,4 +103,4 @@ async function executeLogic(event) {
     "body":  JSON.stringify(userData),
   };
   return response;
-};
+}
