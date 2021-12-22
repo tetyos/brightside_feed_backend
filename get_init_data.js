@@ -140,7 +140,7 @@ function buildMongoQuery(searchQuery) {
   var categories = searchQuery.categories;
   var hasCategories = categories != null && categories.length != 0;
   if (hasCategories) {
-    mongoQuery.itemCategory = { $in : categories };
+    mongoQuery.categories = { $in : categories };
   }
 
   // date
