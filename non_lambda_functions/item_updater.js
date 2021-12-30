@@ -8,7 +8,7 @@ let cachedClient = null;
 
 
 // ========== dont use in lambda ==================
-const { atlas_connection_uri } = require('./connection_strings');
+const { atlas_connection_uri } = require('../connection_strings');
 
 const event = {
   body: "{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\", \"ItemCategory.mobility\"]}",
@@ -42,22 +42,34 @@ async function test(event) {
 
 async function executeLogic(event) {
   const options = {
-    // Include only the `title` and `imdb` fields in the returned document
-    projection: { _id: 0, url: 1},
+    projection: { _id: 1, title: 1},
   };
 
   const hostDocs = {};
-  var callback = elem => {
-    //console.log(elem.url);
-    var host = new URL(elem.url).hostname;
-    if (host.startsWith('www.')) {
-      host = host.substring(4, host.length);
-    }
-    hostDocs[host] = {_id : host};
-    console.log(host);
+  var updatesMap = new Map();
+
+  var callback = async elem => {
+    console.log(elem.title);
+    var oldTitle = elem.title;
+    var newTitle = oldTitle.substr(0, oldTitle.length - 15);
+    console.log(newTitle);
+    updatesMap.set(elem._id, newTitle);
   }
-  const mongoResponse = await cachedDb.collection('items').find({}, options).forEach(callback);
-  const insertResponse = await cachedDb.collection('hosts_safe').insertMany(Object.values(hostDocs));
-  console.log(insertResponse);
-  return mongoResponse;
+  const mongoResponse = await cachedDb.collection('items').find({title: {$regex : "heise"}}, options).forEach(callback);
+  
+  await executeUpdates(updatesMap);
+
+  return "Done";
 };
+
+async function executeUpdates(updatesMap) {
+  for (const [key, value] of updatesMap.entries()) {
+    //console.log(`${key}: ${value}`);
+
+    var updateDoc = {
+      "$set" : {title: value}
+    };
+    //const updateResponse = await cachedDb.collection('items').updateOne({_id:key}, updateDoc);
+    //console.log(updateResponse);
+  }
+}
