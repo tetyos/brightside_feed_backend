@@ -25,10 +25,11 @@ const event4 = {
     authorizer: { 
       jwt: {
         claims: {
-          sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"}
+          sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"
         }
       }
-    },
+    }
+  },
   rawPath: "/get_items_authorized",
 }
 
@@ -63,8 +64,15 @@ async function executeLogic(event) {
   if (event.rawPath === "/get_items_authorized") {
     var userId = event.requestContext.authorizer.jwt.claims.sub;
   }
-
+  
   var searchQuery = JSON.parse(event.body);
+  if (!userId && searchQuery.isFetchUserLikes) {
+    return {
+      statusCode: 401,
+      body: "Not authorized to fetch user likes.",
+    };
+  }
+
   const itemsArray = await getItemsFromDB(searchQuery, userId);
 
   const response = {
