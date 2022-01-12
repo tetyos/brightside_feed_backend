@@ -17,9 +17,12 @@ const event2 = {
   body: "{\"limit\" : 15, \"sortBy\" : \"dateAdded\", \"dateLT\":\"2021-11-24T22:23:57.322Z\", \"dateGT\":\"2021-11-07T14:39:14.869661\", \"voteType\": \"upVotes\"}",
 }
 const event3 = {
-  body: "{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\"], \"incubatorStatus\" : \"inc1\", \"dateLT\":\"2021-11-24T22:23:57.322Z\", \"dateGT\":\"2021-11-07T14:39:14.869661\"}",
+  body: "{\"limit\" : 5, \"sortBy\" : \"datePublished\", \"incubatorStatus\" : \"scraped\"}",
 }
 const event4 = {
+  body: "{\"limit\" : 25, \"sortBy\" : \"datePublished\", \"incubatorStatus\" : \"scraped\", \"datePublishedLT\":\"2022-01-12T23:00:07.000Z\"}",
+}
+const event5 = {
   body : "{\"limit\" : 3, \"skip\" : 1, \"sortBy\" : \"lastVoteOn\", \"isFetchUserLikes\" : \"true\"}",
   requestContext : {
     authorizer: { 
@@ -83,14 +86,14 @@ async function executeLogic(event) {
     "body":  JSON.stringify(itemsArray),
   };
   return response;
-};
+}
 
 async function getItemsFromDB(searchQuery, userId) {
   var sortObject;
   if (searchQuery.sortBy != null) {
       sortObject = {[searchQuery.sortBy]: -1};
     if (searchQuery.sortType != null) {
-      sortObject = {[searchQuery.sortBy]: searchQuery.sortType}
+      sortObject = {[searchQuery.sortBy]: searchQuery.sortType};
     } 
   }
   
@@ -98,7 +101,9 @@ async function getItemsFromDB(searchQuery, userId) {
 
   var query = buildMongoQuery(searchQuery);
 
-  if (userId && searchQuery.isFetchUserLikes) {
+  if (searchQuery.incubatorStatus == "scraped") {
+    return await cachedDb.collection('scraped_items').find(query).sort(sortObject).limit(resultLimit).toArray();
+  } else if (userId && searchQuery.isFetchUserLikes) {
     return await fetchUserLikes(userId, sortObject, resultLimit, searchQuery.skip);
   } else if (userId) {
     return await fetchItemsWithVotes(userId, query, sortObject, resultLimit);
@@ -119,7 +124,7 @@ async function fetchItemsWithVotes(userId, query, sortObject, resultLimit) {
   var voteQuery = {
     userId: userId,
     itemId: {$in:itemIds}
-  }
+  };
   var voteCallback = function(voteItem) { 
     const itemId = voteItem.itemId;
     const item = items[itemId];
@@ -134,7 +139,7 @@ async function fetchUserLikes(userId, sortObject, resultLimit, skip) {
   var likedItemOids = [];
   var callback = function(voteItem) { 
     const likedItemId = voteItem.itemId;
-    likedItemOids.push(new ObjectId(likedItemId))
+    likedItemOids.push(new ObjectId(likedItemId));
     items[likedItemId] = voteItem;
   };
   await cachedDb.collection('user_votes')
@@ -145,7 +150,7 @@ async function fetchUserLikes(userId, sortObject, resultLimit, skip) {
                 .forEach(callback);
   var voteQuery = {
     _id: {$in:likedItemOids}
-  }
+  };
   var voteCallback = function(likedItem) {
     const itemId = likedItem._id;
     const userVotes = items[itemId].votes;
@@ -175,6 +180,17 @@ function buildMongoQuery(searchQuery) {
   if (searchQuery.dateGT != null) {
     dateQuery["$gt"] = new Date(searchQuery.dateGT);
     mongoQuery.dateAdded = dateQuery;
+  }
+
+  // date published
+  var datePublishedQuery = {};
+  if (searchQuery.datePublishedLT != null) {
+    datePublishedQuery["$lt"] = new Date(searchQuery.datePublishedLT);
+    mongoQuery.datePublished = datePublishedQuery;
+  }
+  if (searchQuery.datePublishedGT != null) {
+    datePublishedQuery["$gt"] = new Date(searchQuery.datePublishedGT);
+    mongoQuery.datePublished = datePublishedQuery;
   }
 
   // incubator status

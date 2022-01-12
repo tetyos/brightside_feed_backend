@@ -2,6 +2,14 @@
   "name": "mongodbtest",
   "version": "1.0.0",
   "dependencies": {
+    "axios": "^0.24.0",
+    "metascraper": "^5.25.7",
+    "metascraper-date": "^5.25.7",
+    "metascraper-description": "^5.25.7",
+    "metascraper-image": "^5.25.7",
+    "metascraper-lang": "^5.25.7",
+    "metascraper-title": "^5.25.7",
+    "metascraper-url": "^5.25.7",
     "mongodb": "latest"
   }
 }
