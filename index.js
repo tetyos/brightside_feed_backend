@@ -34,4 +34,4 @@ exports.handler = async (event, context) => {
 
 async function executeLogic(event) {
   // replace with code that is to be executed in lambda function
-};
+}
