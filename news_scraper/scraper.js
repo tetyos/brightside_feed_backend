@@ -12,15 +12,15 @@ const metascraper = require('metascraper')([
 
 const axios = require("axios").default;
 
-const numberOfHoursToScrape = 24;
-const scrapeTargets = ["pv-magazine.com", "treehugger.com", "positive.news"];
+const timeframeInHoursNewsCatcher = 24;
+const scrapeTargetsNewsCatcher = "pv-magazine.com, treehugger.com, positive.news, goodnewsnetwork.org";
 
 // Once we connect to the database once, we'll store that connection and reuse it so that we don't have to connect to the database on every request.
 let cachedDb = null;
 let cachedClient = null;
 
 // ========== dont copy to lambda ==================
-const { atlas_connection_uri } = require('../connection_strings');
+const { atlas_connection_uri, rapid_api_key } = require('../connection_strings');
 
 const testSet = new Set([
   //'https://www.pv-magazine.com/2022/01/07/chinese-pv-industry-brief-jinko-switches-on-8-gw-topcon-factor-tongwei-announces-skyrocketing-profits',
@@ -60,68 +60,72 @@ async function test() {
 // ========== copy below to lambda ==================
 
 async function executeLogic() {
-  // todo: test Console.error in AWS
-
   // get all scraped urls in in mongo db from last x hours + 1 day 
   // (in order to avoid bug with date-differences between news-apis and metascraper. metascraper sometimes only gets day and no hours, minutes..)
-  var startingTime = new Date();
-  startingTime.setHours(startingTime.getHours() - (numberOfHoursToScrape + 24));
+  var mongoStartingTime = new Date();
+  mongoStartingTime.setHours(mongoStartingTime.getHours() - (timeframeInHoursNewsCatcher + 24));
   var mongoResult = await cachedDb.collection('scraped_items')
-                                  .find({"datePublished": {"$gt": startingTime}})
+                                  .find({"datePublished": {"$gt": mongoStartingTime}})
                                   .project({_id:0, url: 1})
                                   .toArray();
                           
-  console.log("Urls of items in mongoDB scraped collection published last " + (numberOfHoursToScrape + 24) + " hours:");                              
+  console.log("Urls of items in mongoDB-scraped-collection published last " + (timeframeInHoursNewsCatcher + 24) + " hours:");                              
   console.log(mongoResult);
 
-  const scrapedUrls = new Set();
-  await fetchUrlsWithNewscatcher(scrapedUrls);
+  const fetchedUrls = new Set();
+  await fetchUrlsWithNewscatcher(fetchedUrls);
+  await fetchUrlsWithBing(fetchedUrls);
 
   // use bing and iterate over all sites and fetch urls
   // use michas script and fetch url for different sites
   
-  console.log("Urls returned by news apis for last " + numberOfHoursToScrape + " hours:");                   
-  console.log(scrapedUrls);
+  console.log("Urls returned by news apis:");                   
+  console.log(fetchedUrls);
   
   // eliminate all urls that already exist in mongo collection
-  scrapedUrls.forEach(scrapedUrl => {
+  fetchedUrls.forEach(scrapedUrl => {
     if (mongoResult.some(jsonElem => compareURLs(jsonElem.url, scrapedUrl))) {
-      scrapedUrls.delete(scrapedUrl);
+      fetchedUrls.delete(scrapedUrl);
     }
   });
-  console.log("Newly scraped urls: ");     
-  console.log(scrapedUrls);
-  if (scrapedUrls.size == 0 ) {
-    return "Scraping finished - no new items added."
+  console.log("Newly fetched urls: ");     
+  console.log(fetchedUrls);
+  if (fetchedUrls.size == 0 ) {
+    return "Fetching urls finished - no new items added."
   }
 
   const allPromises = [];
-  const newScrapedItems = [];
-  for (currentUrl of scrapedUrls) { 
-    var currentPromise = fetchMetaData(currentUrl);
+  const scrapedItems = [];
+  for (currentUrl of fetchedUrls) { 
+    await new Promise(resolve => setTimeout(resolve, 100));
+    var currentPromise = fetchMetaData(currentUrl, mongoStartingTime);
     currentPromise.then(scrapedItem => {
       if (scrapedItem) {
         prepareItemForMongoDB(scrapedItem);
-        newScrapedItems.push(scrapedItem);
+        scrapedItems.push(scrapedItem);
       }
     });
     allPromises.push(currentPromise);
   }
   await Promise.all(allPromises);
+  if (scrapedItems.length == 0 ) {
+    return "Scraping meta data finished - no new items added.";
+  }
+  console.log("Scraping meta data finished. Sending new items to mongo db..");
 
-  var mongoResponse = await cachedDb.collection('scraped_items').insertMany(newScrapedItems);
+  var mongoResponse = await cachedDb.collection('scraped_items').insertMany(scrapedItems);
   if (mongoResponse.acknowledged === false) {
     console.log("Could not insert scraped items");
     console.log(mongoResponse);
   }
-  return "Scraping finished - " + newScrapedItems.length + " items added";
+  return "Scraping finished - " + scrapedItems.length + " items added";
   
   // non-mvp:     
   // for some sites (pv-magazine, storage, etc) one could prepopulate the category-field. 
   // one could just use the host to fetch category from a map 'host -> category'
 };
 
-async function fetchMetaData(urlString) {
+async function fetchMetaData(urlString, mongoStartingTime) {
   try {
     var options = {
       method: 'GET',
@@ -139,7 +143,14 @@ async function fetchMetaData(urlString) {
     if (!compareURLs(result.url, url)) {
       console.error("Url returned by metascraper different to requested url. Item not added.");
       console.error("Requested url: " + urlString);
-      console.error("Url returned by metascraper" + result.url);
+      console.error("Url returned by metascraper: " + result.url);
+      return null;
+    } else if (!result.date) {
+      console.error("Item not added. No published date on item provided. Item: ");
+      console.error(result);
+    } else if (new Date(result.date) < mongoStartingTime) {
+      console.error("Item not added. Item date to old. Date of item < (period of scraping + 1 day). Item:");
+      console.error(result);
       return null;
     } else {
       return result;
@@ -152,11 +163,10 @@ async function fetchMetaData(urlString) {
 }
 
 async function fetchUrlsWithNewscatcher(urlSet) {
-  var scrapeTargetsAsString = getScrapeTargetsAsString();
-  console.log("Scraping [" + scrapeTargetsAsString + "] with newscatcher.")
+  console.log("Newscatcher:  Scraping [" + scrapeTargetsNewsCatcher + "]. Timeframe: " +timeframeInHoursNewsCatcher);
 
   var startingTime = new Date();
-  startingTime.setHours(startingTime.getHours() - numberOfHoursToScrape);
+  startingTime.setHours(startingTime.getHours() - timeframeInHoursNewsCatcher);
 
   var currentPage = 1;
   var totalPages = 1;
@@ -170,12 +180,12 @@ async function fetchUrlsWithNewscatcher(urlSet) {
       sort_by: 'date',
       from: startingTime,
       //to: '2022-01-07T19:57:28.637Z',
-      sources: scrapeTargetsAsString,
+      sources: scrapeTargetsNewsCatcher,
       page: currentPage
     },
     headers: {
       'x-rapidapi-host': 'newscatcher.p.rapidapi.com',
-      'x-rapidapi-key': 'ecd210b60cmsh5e510d95b65966dp1ed591jsn2f65bd5eb69c'
+      'x-rapidapi-key': rapid_api_key
     }
   };
 
@@ -184,8 +194,9 @@ async function fetchUrlsWithNewscatcher(urlSet) {
       const response = await axios.request(options);
       if (!response.data.articles) return;
       for (article of response.data.articles) {
-        urlSet.add(article.link);
+        urlSet.add(removeTrailingSlash(article.link));
       }
+      console.log("Newscatcher: Current page: " + currentPage + " Number of total pages returned: " + response.data.total_pages);
       totalPages = response.data.total_pages;
       currentPage++;
       options.params.page = currentPage;
@@ -196,12 +207,64 @@ async function fetchUrlsWithNewscatcher(urlSet) {
   }
 }
 
-function getScrapeTargetsAsString() {
-  var targetsAsString = "";
-  for (target of scrapeTargets) {
-    targetsAsString += target + ",";
+async function fetchUrlsWithBing(urlSet) {
+  var currentOffset = 0;
+  var elementsPerRequest = 100;
+  var numberOfResults = elementsPerRequest;
+
+  // if timeframe is set to Week or Month, the timeframe for the mongoDB query must be adjusted, so it is known which urls were added already
+  const timeframe = "Day";
+
+  const sites = 'site:pv-magazine.com'
+  + ' OR site:energy-storage.news'
+  + ' OR site:reneweconomy.com.au'
+  + ' OR site:futurefarming.com'
+  + ' OR site:treehugger.com'
+  + ' OR site:inhabitat.com'
+  + ' OR site:sustainablebrands.com'
+  + ' OR site:positive.news'
+  + ' OR site:goodnewsnetwork.com'
+  + ' OR site:euronews.com/green';
+  
+  console.log("Scraping [" + sites + "] with bing. " + elementsPerRequest + " elements per request. Timeframe: " + timeframe);
+
+  // bing currently finds no articles for
+  // intelligentliving.co, cleantechnica.com, en.reset.org
+  var options = {
+    method: 'GET',
+    url: 'https://bing-news-search1.p.rapidapi.com/news/search',
+    params: {
+      q: sites,
+      count: elementsPerRequest,
+      sortBy: 'date',
+      freshness: timeframe,
+      textFormat: 'Raw',
+      safeSearch: 'Off'
+    },
+    headers: {
+      'x-bingapis-sdk': 'true',
+      'x-rapidapi-host': 'bing-news-search1.p.rapidapi.com',
+      'x-rapidapi-key': rapid_api_key
+    }
+  };
+
+  while (currentOffset < numberOfResults) {
+    try {
+      const response = await axios.request(options);
+      var data = response.data;
+      if (!data.totalEstimatedMatches || data.totalEstimatedMatches == 0) return;
+      for (article of data.value) {
+        urlSet.add(removeTrailingSlash(article.url));
+      }
+      console.log("Current offset: " + currentOffset + " Number of results returned: " + data.value.length + " Number of estimated matched: " + data.totalEstimatedMatches);
+      numberOfResults = data.totalEstimatedMatches;
+      currentOffset += data.value.length;
+      options.params.offset = currentOffset;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
   }
-  return targetsAsString;
 }
 
 function prepareItemForMongoDB(item) {
