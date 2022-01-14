@@ -12,7 +12,7 @@ let cachedClient = null;
 const { atlas_connection_uri } = require('./connection_strings');
 
 const event1 = {
-  body : "{\"itemId\" : \"61b77995826c574ddc725e44\", \"actionType\" : \"removeUnsafe\"}",
+  body : "{\"itemId\" : \"61a890664084565a953d0285\", \"actionType\" : \"removeUnsafe\"}",
   requestContext : {
     authorizer: { 
       jwt: {
@@ -95,13 +95,17 @@ async function deleteItem(itemId, itemDoc) {
   delete itemDoc._id;
   const insertResponse = await cachedDb.collection('deleted_items').insertOne(itemDoc);
   if (insertResponse.acknowledged != true) {
+    const errorString = "Item was not deleted, since backup could not be created.";
+    console.error(errorString);
     return {
       statusCode: 500,
-      body: "Item was not deleted, since backup could not be created.",
+      body: errorString,
     };
   }
   const deleteResponse = await cachedDb.collection('items').deleteOne({_id: new ObjectId(itemId)});
   if (deleteResponse.acknowledged != true || deleteResponse.deletedCount == 0) {
+    console.error("Item could not be deleted.");
+    console.error(deleteResponse);
     return {
       statusCode: 500,
       body: "Item could not be deleted. Internal server error.",
@@ -115,9 +119,11 @@ async function deleteItem(itemId, itemDoc) {
 
 async function removeIncStatus(itemId, itemDoc) {
   if (itemDoc.incubatorStatus != "inc1") {
+    const errorString = "Can not remove incubator status. Item has no incubator status.";
+    console.error(errorString);
     return {
       statusCode: 400,
-      body: "Can not remove incubator status. Item has no incubator status.",
+      body: errorString,
     };
   }
   const updateDoc = {
@@ -126,6 +132,8 @@ async function removeIncStatus(itemId, itemDoc) {
   const updateResponse = await cachedDb.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
 
   if (updateResponse.acknowledged != true || updateResponse.modifiedCount == 0) {
+    console.error("Incubator status could not be removed.");
+    console.error(updateResponse);
     return {
       statusCode: 500,
       body: "Incubator status could not be removed. Internal server error.",
@@ -139,9 +147,11 @@ async function removeIncStatus(itemId, itemDoc) {
 
 async function removeUnsafeStatus(itemId, itemDoc) {
   if (itemDoc.incubatorStatus != "unsafe") {
+    const errorString = "Can not remove unsafe status. Item has no unsafe status.";
+    console.error(errorString);
     return {
       statusCode: 400,
-      body: "Can not remove unsafe status. Item has no unsafe status.",
+      body: errorString,
     };
   }
   const updateDoc = {
@@ -150,6 +160,8 @@ async function removeUnsafeStatus(itemId, itemDoc) {
   const updateResponse = await cachedDb.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
 
   if (updateResponse.acknowledged != true || updateResponse.modifiedCount == 0) {
+    console.error("Unsafe status could not be removed.");
+    console.error(updateResponse);
     return {
       statusCode: 500,
       body: "Unsafe status could not be removed. Internal server error.",
@@ -165,9 +177,9 @@ async function removeUnsafeStatus(itemId, itemDoc) {
   } catch (e) {
     hostAdded = false;
     if (e.errmsg.includes("E11000 duplicate key error collection")) {
-      console.log("Host was already contained in list of safe hosts");
+      console.error("Host was already contained in list of safe hosts");
     } else {
-      console.log(e);
+      console.error(e);
     }
   }
 
