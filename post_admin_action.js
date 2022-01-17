@@ -12,7 +12,7 @@ let cachedClient = null;
 const { atlas_connection_uri } = require('./connection_strings');
 
 const event1 = {
-  body : "{\"itemId\" : \"61a890664084565a953d0285\", \"actionType\" : \"removeUnsafe\"}",
+  body : "{\"itemId\" : \"61e56335f0451390c08404b2\", \"actionType\" : \"deleteItem\"}",
   requestContext : {
     authorizer: { 
       jwt: {
@@ -49,7 +49,6 @@ async function test(event) {
 };
 
 // ========== dont use in lambda ==================
-
 
 async function executeLogic(event) {
   console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
@@ -88,7 +87,7 @@ async function executeLogic(event) {
     statusCode: 400,
     body: "Invalid request body.",
   };
-};
+}
 
 async function deleteItem(itemId, itemDoc) {
   itemDoc["oldId"] = itemDoc._id;
@@ -111,6 +110,12 @@ async function deleteItem(itemId, itemDoc) {
       body: "Item could not be deleted. Internal server error.",
     };
   }
+
+  const deleteVotesResponse = await cachedDb.collection('user_votes').deleteMany({itemId: itemId});
+  if (deleteVotesResponse.acknowledged != true || deleteVotesResponse.deletedCount == 0) {
+    console.error("User votes could not be deleted for item with id: " + itemId);
+    console.error(deleteResponse);
+  }
   return {
     statusCode: 200,
     body: JSON.stringify(deleteResponse),
@@ -128,7 +133,7 @@ async function removeIncStatus(itemId, itemDoc) {
   }
   const updateDoc = {
     $unset: {"incubatorStatus": ""},
-  }
+  };
   const updateResponse = await cachedDb.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
 
   if (updateResponse.acknowledged != true || updateResponse.modifiedCount == 0) {
@@ -156,7 +161,7 @@ async function removeUnsafeStatus(itemId, itemDoc) {
   }
   const updateDoc = {
     $set: {"incubatorStatus": "inc1"},
-  }
+  };
   const updateResponse = await cachedDb.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
 
   if (updateResponse.acknowledged != true || updateResponse.modifiedCount == 0) {

@@ -35,8 +35,21 @@ const event5 = {
   },
   rawPath: "/get_items_authorized",
 }
+const event6 = {
+  body : "{\"limit\" : 25, \"sortBy\" : \"lastVoteOn\", \"isFetchUserLikes\" : \"true\"}",
+  requestContext : {
+    authorizer: { 
+      jwt: {
+        claims: {
+          sub: "7c80adce-54a2-4af3-999f-786ab5dc1faf"
+        }
+      }
+    }
+  },
+  rawPath: "/get_items_authorized",
+}
 
-test(event4).then(result => console.log(result));
+test(event6).then(result => console.log(result));
 
 async function connectToDatabase() {
   if (cachedDb) {
@@ -60,7 +73,6 @@ async function test(event) {
 };
 
 // ========== dont use in lambda ==================
-
 
 async function executeLogic(event) {
   console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
@@ -135,12 +147,15 @@ async function fetchItemsWithVotes(userId, query, sortObject, resultLimit) {
 }
 
 async function fetchUserLikes(userId, sortObject, resultLimit, skip) {
-  var items = {};
+  var itemIdToUserVotes = {};
+  var itemIdToItem = {};
   var likedItemOids = [];
   var callback = function(voteItem) { 
     const likedItemId = voteItem.itemId;
     likedItemOids.push(new ObjectId(likedItemId));
-    items[likedItemId] = voteItem;
+    itemIdToUserVotes[likedItemId] = voteItem;
+    // we want the returned items to be in order of the userVotes returned. hence we need to prepare list here
+    itemIdToItem[likedItemId] = null;
   };
   await cachedDb.collection('user_votes')
                 .find({userId: userId})
@@ -148,17 +163,20 @@ async function fetchUserLikes(userId, sortObject, resultLimit, skip) {
                 .skip(skip ? skip : 0)
                 .limit(resultLimit)
                 .forEach(callback);
+
   var voteQuery = {
     _id: {$in:likedItemOids}
   };
   var voteCallback = function(likedItem) {
-    const itemId = likedItem._id;
-    const userVotes = items[itemId].votes;
+    const userVotes = itemIdToUserVotes[likedItem._id].votes;
     likedItem['userVotes'] = userVotes;
-    items[itemId] = likedItem;
+    itemIdToItem[likedItem._id] = likedItem;
   };
   await cachedDb.collection('items').find(voteQuery).forEach(voteCallback);
-  return Object.values(items);
+
+  // filter out null values (in case some item belonging to a vote was not found for any reason)
+  const likedItems = Object.values(itemIdToItem).filter(item => item);
+  return likedItems;
 }
 
 function buildMongoQuery(searchQuery) {
