@@ -1,62 +1,16 @@
-// Import the MongoDB driver and other stuff
-const MongoClient = require("mongodb").MongoClient;
 const ObjectId = require('mongodb').ObjectId;
 const {URL} = require("url");
+exports.postAdminAction = postAdminAction;
 
-// Once we connect to the database once, we'll store that connection and reuse it so that we don't have to connect to the database on every request.
-let cachedDb = null;
-let cachedClient = null;
+let db = null;
 
-
-// ========== dont use in lambda ==================
-const { atlas_connection_uri } = require('./connection_strings');
-
-const event1 = {
-  body : "{\"itemId\" : \"61e56335f0451390c08404b2\", \"actionType\" : \"deleteItem\"}",
-  requestContext : {
-    authorizer: { 
-      jwt: {
-        claims: {
-          email: "tetyos@testmail.com",
-          sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"
-        }
-      }
-    }
-  }
-}
-
-test(event1).then(result => console.log(result));
-
-async function connectToDatabase() {
-  if (cachedDb) {
-    return;
-  }
-  // Connect to our MongoDB database hosted on MongoDB Atlas
-  cachedClient = await MongoClient.connect(atlas_connection_uri);
-  // Specify which database we want to use
-  cachedDb = cachedClient.db("chances_db");
-}
-
-async function test(event) {
-  // Get an instance of our database
-  try {
-    await connectToDatabase();
-    return await executeLogic(event);
-  } finally {
-    // Close the connection to the MongoDB cluster
-    await cachedClient.close();
-  }
-};
-
-// ========== dont use in lambda ==================
-
-async function executeLogic(event) {
-  console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
+async function postAdminAction(cachedDb, event) {
+  db = cachedDb;
   var userId = event.requestContext.authorizer.jwt.claims.sub;
   var request = JSON.parse(event.body);
 
   // get user
-  var userDoc = await cachedDb.collection('user').findOne({_id: userId});
+  var userDoc = await db.collection('user').findOne({_id: userId});
   if (userDoc == null || userDoc.rank != "admin") {
     return {
       statusCode: 401,
@@ -65,7 +19,7 @@ async function executeLogic(event) {
   }
 
   // get item
-  var itemDoc = await cachedDb.collection('items').findOne({_id: new ObjectId(request.itemId)});
+  var itemDoc = await db.collection('items').findOne({_id: new ObjectId(request.itemId)});
   if (itemDoc == null) {
     return {
       statusCode: 404,
@@ -92,7 +46,7 @@ async function executeLogic(event) {
 async function deleteItem(itemId, itemDoc) {
   itemDoc["oldId"] = itemDoc._id;
   delete itemDoc._id;
-  const insertResponse = await cachedDb.collection('deleted_items').insertOne(itemDoc);
+  const insertResponse = await db.collection('deleted_items').insertOne(itemDoc);
   if (insertResponse.acknowledged != true) {
     const errorString = "Item was not deleted, since backup could not be created.";
     console.error(errorString);
@@ -101,7 +55,7 @@ async function deleteItem(itemId, itemDoc) {
       body: errorString,
     };
   }
-  const deleteResponse = await cachedDb.collection('items').deleteOne({_id: new ObjectId(itemId)});
+  const deleteResponse = await db.collection('items').deleteOne({_id: new ObjectId(itemId)});
   if (deleteResponse.acknowledged != true || deleteResponse.deletedCount == 0) {
     console.error("Item could not be deleted.");
     console.error(deleteResponse);
@@ -111,7 +65,7 @@ async function deleteItem(itemId, itemDoc) {
     };
   }
 
-  const deleteVotesResponse = await cachedDb.collection('user_votes').deleteMany({itemId: itemId});
+  const deleteVotesResponse = await db.collection('user_votes').deleteMany({itemId: itemId});
   if (deleteVotesResponse.acknowledged != true || deleteVotesResponse.deletedCount == 0) {
     console.error("User votes could not be deleted for item with id: " + itemId);
     console.error(deleteResponse);
@@ -134,7 +88,7 @@ async function removeIncStatus(itemId, itemDoc) {
   const updateDoc = {
     $unset: {"incubatorStatus": ""},
   };
-  const updateResponse = await cachedDb.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
+  const updateResponse = await db.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
 
   if (updateResponse.acknowledged != true || updateResponse.modifiedCount == 0) {
     console.error("Incubator status could not be removed.");
@@ -162,7 +116,7 @@ async function removeUnsafeStatus(itemId, itemDoc) {
   const updateDoc = {
     $set: {"incubatorStatus": "inc1"},
   };
-  const updateResponse = await cachedDb.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
+  const updateResponse = await db.collection('items').updateOne({_id: new ObjectId(itemId)}, updateDoc);
 
   if (updateResponse.acknowledged != true || updateResponse.modifiedCount == 0) {
     console.error("Unsafe status could not be removed.");
@@ -178,7 +132,7 @@ async function removeUnsafeStatus(itemId, itemDoc) {
   }
   var hostAdded = true;
   try {
-    await cachedDb.collection('hosts_safe').insertOne({_id: host});
+    await db.collection('hosts_safe').insertOne({_id: host});
   } catch (e) {
     hostAdded = false;
     if (e.errmsg.includes("E11000 duplicate key error collection")) {

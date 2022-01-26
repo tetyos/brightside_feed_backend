@@ -1,57 +1,10 @@
-// Import the MongoDB driver and other stuff
-const MongoClient = require("mongodb").MongoClient;
 const {URL} = require("url");
+exports.postItem = postItem;
 
-// Once we connect to the database once, we'll store that connection and reuse it so that we don't have to connect to the database on every request.
-let cachedDb = null;
-let cachedClient = null;
+let db = null;
 
-
-// ========== dont use in lambda ==================
-const { atlas_connection_uri } = require('./connection_strings');
-
-const event1 = {
-  body : "{\"title\" : \"Test Title\", \"description\" : \"Test Description\", \"url\" : \"https://www.elektroauto-news.net/2021/kann-europa-leitmarkt-rgiequelle-geniale-erfindung-kombiniert-solar-und-windkraft_105884\"}",
-  requestContext : {
-    authorizer: { 
-      jwt: {
-        claims: {
-          email: "tetyos@testmail.com",
-          sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"
-        }
-      }
-    }
-  }
-}
-
-test(event1).then(result => console.log(result));
-
-async function connectToDatabase() {
-  if (cachedDb) {
-    return;
-  }
-  // Connect to our MongoDB database hosted on MongoDB Atlas
-  cachedClient = await MongoClient.connect(atlas_connection_uri);
-  // Specify which database we want to use
-  cachedDb = cachedClient.db("chances_db");
-}
-
-async function test(event) {
-  // Get an instance of our database
-  try {
-    await connectToDatabase();
-    return await executeLogic(event);
-  } finally {
-    // Close the connection to the MongoDB cluster
-    await cachedClient.close();
-  }
-};
-
-// ========== dont use in lambda ==================
-
-
-async function executeLogic(event) {
-  console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
+async function postItem(cachedDb, event) {
+  db = cachedDb;
   var userId = event.requestContext.authorizer.jwt.claims.sub;
   var mail = event.requestContext.authorizer.jwt.claims.email;
 
@@ -70,7 +23,7 @@ async function executeLogic(event) {
     jsonContents.incubatorStatus = "unsafe";
   }
 
-  const mongoResponse = await cachedDb.collection('items').insertOne(jsonContents);
+  const mongoResponse = await db.collection('items').insertOne(jsonContents);
   
   var response;
   if (mongoResponse.acknowledged === false) {
@@ -96,5 +49,5 @@ async function checkHost(url) {
   }
   console.log(host);
 
-  return await cachedDb.collection('hosts_safe').findOne({_id: host});
+  return await db.collection('hosts_safe').findOne({_id: host});
 }

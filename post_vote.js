@@ -1,52 +1,12 @@
-// Import the MongoDB driver and other stuff
-const MongoClient = require("mongodb").MongoClient;
 const ObjectId = require('mongodb').ObjectId;
+exports.postVote = postVote;
 
-// Once we connect to the database once, we'll store that connection and reuse it so that we don't have to connect to the database on every request.
-let cachedDb = null;
-let cachedClient = null;
+let db = null;
+let client = null;
 
-// ========== dont use in lambda ==================
-const { atlas_connection_uri } = require('./connection_strings');
-
-const event = {
-  body : "{\"itemId\": \"619f595befae98cf8aa71c49\", \"voteCategory\": \"impactNom\", \"inc\": true}",
-  requestContext : {
-    authorizer: { 
-      jwt: {
-        claims: {
-          sub: "7ec8f757-4dfc-445c-815e-6b81f21c1295"}
-        }
-      }
-    }
-}
-test(event).then(result => console.log(result));
-
-async function connectToDatabase() {
-  if (cachedDb && cachedClient) {
-    return;
-  }
-  // Connect to our MongoDB database hosted on MongoDB Atlas
-  cachedClient = await MongoClient.connect(atlas_connection_uri);
-  // Specify which database we want to use
-  cachedDb = cachedClient.db("chances_db");
-}
-
-async function test(event) {
-  // Get an instance of our database
-  try {
-    await connectToDatabase();
-    return await executeLogic(event);
-  } finally {
-    // Close the connection to the MongoDB cluster
-    await cachedClient.close();
-  }
-};
-
-// ========== dont use in lambda ==================
-
-async function executeLogic(event) {
-  console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
+async function postVote(cachedDb, cachedClient, event) {
+  db = cachedDb;
+  client = cachedClient;
   var userId = event.requestContext.authorizer.jwt.claims.sub;
 
   var jsonContents = JSON.parse(event.body);
@@ -67,7 +27,7 @@ async function executeLogic(event) {
 
   // retrieve existing votes on item by current user, if existing
   var query = {"userId": userId, "itemId": requestInfos.itemId};
-  const votesDoc = await cachedDb.collection('user_votes').findOne(query);
+  const votesDoc = await db.collection('user_votes').findOne(query);
 
   // handle vote request
   if (requestInfos.isIncrease) {
@@ -177,7 +137,7 @@ async function updateCollections_replaceVariant(session, requestInfos, newVotesD
     session: session,
   }
   var query = {userId: requestInfos.userId, itemId: requestInfos.itemId};
-  var mongoResponse = await cachedDb.collection('user_votes').replaceOne(query, newVotesDoc, options);
+  var mongoResponse = await db.collection('user_votes').replaceOne(query, newVotesDoc, options);
   if (mongoResponse.acknowledged === false || (mongoResponse.modifiedCount === 0 && mongoResponse.upsertedCount === 0)) {
     logAbort("Updating user-votes collection failed.", mongoResponse, requestInfos);
     await session.abortTransaction();
@@ -186,7 +146,7 @@ async function updateCollections_replaceVariant(session, requestInfos, newVotesD
 
   // update items collection
   var itemUpdate = createItemUpdate(requestInfos.voteCategory, requestInfos.isIncrease);
-  var mongoResponse = await cachedDb.collection('items').updateOne({_id:new ObjectId(requestInfos.itemId)}, itemUpdate, {session});
+  var mongoResponse = await db.collection('items').updateOne({_id:new ObjectId(requestInfos.itemId)}, itemUpdate, {session});
   if (mongoResponse.acknowledged === false || mongoResponse.modifiedCount === 0 || mongoResponse.matchedCount === 0) {
     logAbort("Updating item collection failed.", mongoResponse, requestInfos);
     await session.abortTransaction();
@@ -197,7 +157,7 @@ async function updateCollections_replaceVariant(session, requestInfos, newVotesD
 async function updateCollections_deleteVariant(session, requestInfos) {
   // update user_votes collection
   var query = {userId: requestInfos.userId, itemId: requestInfos.itemId};
-  var mongoResponse = await cachedDb.collection('user_votes').deleteOne(query, {session});
+  var mongoResponse = await db.collection('user_votes').deleteOne(query, {session});
   if (mongoResponse.acknowledged === false || (mongoResponse.deletedCount != 1)) {
     logAbort("Updating user-votes collection failed.", mongoResponse, requestInfos);
     await session.abortTransaction();
@@ -206,7 +166,7 @@ async function updateCollections_deleteVariant(session, requestInfos) {
 
   // update items collection
   var itemUpdate = createItemUpdate(requestInfos.voteCategory, requestInfos.isIncrease);
-  var mongoResponse = await cachedDb.collection('items').updateOne({_id:new ObjectId(requestInfos.itemId)}, itemUpdate, {session});
+  var mongoResponse = await db.collection('items').updateOne({_id:new ObjectId(requestInfos.itemId)}, itemUpdate, {session});
   if (mongoResponse.acknowledged === false || mongoResponse.modifiedCount === 0 || mongoResponse.matchedCount === 0) {
     logAbort("Updating item collection failed.", mongoResponse, requestInfos);
     await session.abortTransaction();
@@ -221,7 +181,7 @@ function logAbort(message, mongoResponse, requestInfos) {
 } 
 
 async function executeTransaction(runnable) {
-  const session = cachedClient.startSession();
+  const session = client.startSession();
   const transactionOptions = {
       readPreference: 'primary',
       readConcern: { level: 'local' },
