@@ -41,19 +41,20 @@ async function getItemsFromDB(searchQuery, userId) {
   var resultLimit = searchQuery.limit != null ? searchQuery.limit : 20;
 
   var query = buildMongoQuery(searchQuery);
+  const skip = searchQuery.skip;
 
   if (searchQuery.incubatorStatus == "scraped") {
-    return await db.collection('scraped_items').find(query).sort(sortObject).limit(resultLimit).toArray();
+    return await db.collection('scraped_items').find(query).sort(sortObject).skip(skip ? skip : 0).limit(resultLimit).toArray();
   } else if (userId && searchQuery.isFetchUserLikes) {
-    return await fetchUserLikes(userId, sortObject, resultLimit, searchQuery.skip);
+    return await fetchUserLikes(userId, sortObject, resultLimit, skip);
   } else if (userId) {
-    return await fetchItemsWithVotes(userId, query, sortObject, resultLimit);
+    return await fetchItemsWithVotes(userId, query, sortObject, resultLimit, skip);
   } else {
-    return await db.collection('items').find(query).sort(sortObject).limit(resultLimit).toArray();
+    return await db.collection('items').find(query).sort(sortObject).skip(skip ? skip : 0).limit(resultLimit).toArray();
   }
 }
 
-async function fetchItemsWithVotes(userId, query, sortObject, resultLimit) {
+async function fetchItemsWithVotes(userId, query, sortObject, resultLimit, skip) {
   var items = {};
   var itemIds = [];
   var callback = function(item) { 
@@ -61,7 +62,12 @@ async function fetchItemsWithVotes(userId, query, sortObject, resultLimit) {
     itemIds.push(itemId.toString());
     items[itemId] = item;
   };
-  await db.collection('items').find(query).sort(sortObject).limit(resultLimit).forEach(callback);
+  await db.collection('items')
+          .find(query)
+          .sort(sortObject)
+          .skip(skip ? skip : 0)
+          .limit(resultLimit)
+          .forEach(callback);
   var voteQuery = {
     userId: userId,
     itemId: {$in:itemIds}

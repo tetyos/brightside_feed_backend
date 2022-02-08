@@ -6,7 +6,7 @@
 // get init data
 
 exports.getInitData_1 = {
-  body: "[{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"ItemCategory.food\", \"ItemCategory.mobility\"]}]",
+  body: "[{\"limit\" : 2, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"food\", \"medTech\"]}]",
   rawPath: "/get_init_data",
 }
 exports.getInitData_2 = {
@@ -34,7 +34,7 @@ exports.getInitData_4 = {
 
 // get items
 exports.getItems_1 = {
-  body: "{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"solar\", \"wind\"]}",
+  body: "{\"limit\" : 5, \"sortBy\" : \"dateAdded\",  \"categories\" : [\"solar\", \"wind\"], \"skip\":1}",
   rawPath: "/get_items"
 }
 exports.getItems_2 = {
@@ -64,6 +64,20 @@ exports.getItems_5 = {
 }
 exports.getItems_6 = {
   body : "{\"limit\" : 25, \"sortBy\" : \"lastVoteOn\", \"isFetchUserLikes\" : \"true\"}",
+  requestContext : {
+    authorizer: { 
+      jwt: {
+        claims: {
+          sub: "7c80adce-54a2-4af3-999f-786ab5dc1faf"
+        }
+      }
+    }
+  },
+  rawPath: "/get_items_authorized",
+}
+
+exports.getItems_7 = {
+  body : "{\"sortBy\":\"inspiringNoms\",\"limit\":25,\"voteType\":\"inspiringNoms\",\"skip\":25}",
   requestContext : {
     authorizer: { 
       jwt: {

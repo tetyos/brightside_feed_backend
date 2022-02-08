@@ -216,7 +216,6 @@ async function fetchUrlsWithBing(urlSet) {
   const timeframe = "Day";
 
   const sites = 'site:pv-magazine.com'
-  + ' OR site:energy-storage.news'
   + ' OR site:reneweconomy.com.au'
   + ' OR site:futurefarming.com'
   + ' OR site:treehugger.com'
@@ -229,7 +228,7 @@ async function fetchUrlsWithBing(urlSet) {
   console.log("Scraping [" + sites + "] with bing. " + elementsPerRequest + " elements per request. Timeframe: " + timeframe);
 
   // bing currently finds no articles for
-  // intelligentliving.co, cleantechnica.com, en.reset.org
+  // intelligentliving.co, cleantechnica.com, en.reset.org, energy-storage.news
   var options = {
     method: 'GET',
     url: 'https://bing-news-search1.p.rapidapi.com/news/search',

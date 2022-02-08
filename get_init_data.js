@@ -59,7 +59,12 @@ async function getItemsFromDB(searchQuery, idsForCurrentQuery, allItems) {
     idsForCurrentQuery.push(itemId);
     allItems[itemId] = item;
    };
-  await db.collection('items').find(query).sort(sortObject).limit(resultLimit).forEach(callback);
+  await db.collection('items')
+          .find(query)
+          .sort(sortObject)
+          .skip(searchQuery.skip ? searchQuery.skip : 0)
+          .limit(resultLimit)
+          .forEach(callback);
 }
 
 async function addVotesToItems(userId, items) {
