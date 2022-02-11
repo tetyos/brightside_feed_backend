@@ -269,6 +269,7 @@ async function fetchUrlsWithBing(urlSet) {
 function prepareItemForMongoDB(item) {
   item.imageUrl = item.image;
   item.datePublished = new Date(item.date);
+  item.dateScraped = new Date();
   item.incubatorStatus = "scraped";
   delete item.image;
   delete item.date;

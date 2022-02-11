@@ -146,6 +146,17 @@ function buildMongoQuery(searchQuery) {
     mongoQuery.datePublished = datePublishedQuery;
   }
 
+    // date scraped
+    var dateScrapedQuery = {};
+    if (searchQuery.dateScrapedLT != null) {
+      dateScrapedQuery["$lt"] = new Date(searchQuery.dateScrapedLT);
+      mongoQuery.dateScraped = dateScrapedQuery;
+    }
+    if (searchQuery.dateScrapedGT != null) {
+      dateScrapedQuery["$gt"] = new Date(searchQuery.dateScrapedGT);
+      mongoQuery.dateScraped = dateScrapedQuery;
+    }
+
   // incubator status
   if (searchQuery.incubatorStatus == null) {
     mongoQuery.incubatorStatus = { $exists: false };

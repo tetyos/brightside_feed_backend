@@ -42,7 +42,7 @@ exports.getItems_2 = {
   rawPath: "/get_items"
 }
 exports.getItems_3 = {
-  body: "{\"limit\" : 5, \"sortBy\" : \"datePublished\", \"incubatorStatus\" : \"scraped\"}",
+  body: "{\"limit\" : 5, \"sortBy\" : \"dateScraped\", \"incubatorStatus\" : \"scraped\", \"dateScrapedLT\":\"2022-02-11T12:11:02.927+00:00\", \"dateScrapedGT\":\"2022-02-10T17:51:48.157+00:00\"}",
   rawPath: "/get_items"
 }
 exports.getItems_4 = {

@@ -37,7 +37,7 @@ async function test(event) {
   }
 };
 
-test(TestEvents.updateScrapedItem_1).then(result => console.log(result));
+test(TestEvents.getItems_3).then(result => console.log(result));
 
 // ========== copy below to lambda ==================
 

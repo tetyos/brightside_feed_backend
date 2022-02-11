@@ -10,7 +10,7 @@ async function getInitData(cachedDb, event) {
   }
   var jsonContents = JSON.parse(event.body);
 
-  const allItems = {}
+  const allItems = {};
   const queriesToItemIds = [];
   for (const currentSearchQuery of jsonContents) {
     const idsForCurrentQuery = [];
@@ -26,7 +26,7 @@ async function getInitData(cachedDb, event) {
   const responseObject = {
     queriesToItemIds: queriesToItemIds,
     items: allItems,
-  }
+  };
   if (userId) {
     responseObject.userDoc = userDoc;
   }
@@ -39,14 +39,14 @@ async function getInitData(cachedDb, event) {
     "body":  JSON.stringify(responseObject),
   };
   return response;
-};
+}
 
 async function getItemsFromDB(searchQuery, idsForCurrentQuery, allItems) {
   var sortObject;
   if (searchQuery.sortBy != null) {
       sortObject = {[searchQuery.sortBy]: -1};
     if (searchQuery.sortType != null) {
-      sortObject = {[searchQuery.sortBy]: searchQuery.sortType}
+      sortObject = {[searchQuery.sortBy]: searchQuery.sortType};
     } 
   }
   
@@ -71,7 +71,7 @@ async function addVotesToItems(userId, items) {
     var voteQuery = {
       userId: userId,
       itemId: {$in:Object.keys(items)}
-    }
+    };
     var voteCallback = function(voteItem) { 
       const itemId = voteItem.itemId;
       const item = items[itemId];
