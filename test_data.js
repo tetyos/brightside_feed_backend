@@ -206,3 +206,19 @@ exports.updateScrapedItem_1 = {
   },
   rawPath: "/update_scraped_item",
 }
+
+// delete user
+
+exports.deleteUser_1 = {
+  requestContext : {
+    authorizer: { 
+      jwt: {
+        claims: {
+          email: "tetyos@testmail.com",
+          sub: "12345678"
+        }
+      }
+    }
+  },
+  rawPath: "/delete_user",
+}

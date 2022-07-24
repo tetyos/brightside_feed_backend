@@ -20,7 +20,7 @@ let cachedDb = null;
 let cachedClient = null;
 
 // ========== dont copy to lambda ==================
-const { atlas_connection_uri, rapid_api_key } = require('../connection_strings');
+const { atlas_connection_uri, rapid_api_key, newscatcher_api_key } = require('../connection_strings');
 
 const testSet = new Set([
   //'https://www.pv-magazine.com/2022/01/07/chinese-pv-industry-brief-jinko-switches-on-8-gw-topcon-factor-tongwei-announces-skyrocketing-profits',
@@ -171,7 +171,7 @@ async function fetchUrlsWithNewscatcher(urlSet) {
   var currentPage = 1;
   var totalPages = 1;
 
-  var options = {
+  var optionsNewsCatcherRapidApi = {
     method: 'GET',
     url: 'https://newscatcher.p.rapidapi.com/v1/search',
     params: {
@@ -186,12 +186,36 @@ async function fetchUrlsWithNewscatcher(urlSet) {
     headers: {
       'x-rapidapi-host': 'newscatcher.p.rapidapi.com',
       'x-rapidapi-key': rapid_api_key
-    }
+    },
+    timeout: 5000
+  };
+
+  var dateStringNewsCatcher = startingTime.getFullYear() + '/' + (startingTime.getMonth() + 1) + '/' + startingTime.getDate();
+  console.log(dateStringNewsCatcher);
+  console.log(startingTime);
+  var optionsNewsCatcherDirect = {
+    method: 'GET',
+    url: 'https://api.newscatcherapi.com/v2/search',
+    params: {
+      q: '*',
+      lang: 'en',
+      sort_by: 'date',
+      from: dateStringNewsCatcher,
+      //from: '2022/07/19',
+      //from: startingTime,
+      //to: '2022-01-07T19:57:28.637Z',
+      sources: scrapeTargetsNewsCatcher,
+      page: currentPage
+    },
+    headers: {
+      'x-api-key': newscatcher_api_key
+    },
+    timeout: 5000
   };
 
   while (currentPage <= totalPages) {
     try {
-      const response = await axios.request(options);
+      const response = await axios.request(optionsNewsCatcherRapidApi);
       if (!response.data.articles) return;
       for (article of response.data.articles) {
         urlSet.add(removeTrailingSlash(article.link));
@@ -199,7 +223,8 @@ async function fetchUrlsWithNewscatcher(urlSet) {
       console.log("Newscatcher: Current page: " + currentPage + " Number of total pages returned: " + response.data.total_pages);
       totalPages = response.data.total_pages;
       currentPage++;
-      options.params.page = currentPage;
+      optionsNewsCatcherRapidApi.params.page = currentPage;
+      await new Promise(resolve => setTimeout(resolve, 1100));
     } catch (error) {
       console.error(error);
       return null;
@@ -244,7 +269,8 @@ async function fetchUrlsWithBing(urlSet) {
       'x-bingapis-sdk': 'true',
       'x-rapidapi-host': 'bing-news-search1.p.rapidapi.com',
       'x-rapidapi-key': rapid_api_key
-    }
+    },
+    timeout: 5000
   };
 
   while (currentOffset < numberOfResults) {

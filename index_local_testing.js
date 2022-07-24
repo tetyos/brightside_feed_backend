@@ -15,6 +15,7 @@ const {postItem} = require('./post_item');
 const {postVote} = require('./post_vote');
 const {updateItem} = require('./update_item');
 const {updateScrapedItem} = require('./update_scraped_item');
+const {deleteUser} = require('./delete_user');
 
 const { atlas_connection_uri } = require('./connection_strings');
 const TestEvents = require('./test_data');
@@ -37,7 +38,7 @@ async function test(event) {
   }
 };
 
-test(TestEvents.getItems_3).then(result => console.log(result));
+test(TestEvents.postItem_1).then(result => console.log(result));
 
 // ========== copy below to lambda ==================
 
@@ -63,6 +64,8 @@ async function handleEvent(event) {
       return await updateItem(cachedDb, event);
     case "/update_scraped_item":
       return await updateScrapedItem(cachedDb, event);
+    case "/delete_user":
+     return await deleteUser(cachedDb, event);  
     default:
       console.error("SNH. No match found for path '" + event.rawPath + "'. Can not handle event.");
       return {
