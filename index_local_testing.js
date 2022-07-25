@@ -38,7 +38,7 @@ async function test(event) {
   }
 };
 
-test(TestEvents.postItem_1).then(result => console.log(result));
+test(TestEvents.postAdminAction_1).then(result => console.log(result));
 
 // ========== copy below to lambda ==================
 

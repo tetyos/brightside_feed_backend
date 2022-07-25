@@ -39,5 +39,32 @@ exports.handler = async (event, context) => {
 // ========== copy code from local test environment below ==================
 
 async function handleEvent(event) {
-  // replace with code that is to be executed in lambda function
+  console.log('Calling MongoDB Atlas from AWS Lambda with event: ' + JSON.stringify(event));
+
+  switch(event.rawPath) {
+    case "/get_init_data":
+    case "/get_init_data_authorized":
+      return await getInitData(cachedDb, event);
+    case "/get_items":
+    case "/get_items_authorized":
+      return await getItems(cachedDb, event);
+    case "/get_user_data":
+      return await getUserData(cachedDb, event);
+    case "/post_admin_action":
+      return await postAdminAction(cachedDb, event);
+    case "/post_item":
+      return await postItem(cachedDb, event);
+    case "/post_votes":
+      return await postVote(cachedDb, cachedClient, event);
+    case "/update_item":
+      return await updateItem(cachedDb, event);
+    case "/update_scraped_item":
+      return await updateScrapedItem(cachedDb, event);
+    default:
+      console.error("SNH. No match found for path '" + event.rawPath + "'. Can not handle event.");
+      return {
+        statusCode: 500,
+        body: "Internal server error.",
+      };
+  }
 }

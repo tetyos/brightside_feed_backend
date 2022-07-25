@@ -10,6 +10,7 @@
     "metascraper-lang": "^5.25.7",
     "metascraper-title": "^5.25.7",
     "metascraper-url": "^5.25.7",
-    "mongodb": "latest"
+    "mongodb": "latest",
+    "twitter-api-v2": "^1.12.3"
   }
 }

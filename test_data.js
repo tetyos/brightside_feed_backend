@@ -112,7 +112,7 @@ exports.getUserData_2  = {
       jwt: {
         claims: {
           sub: "22686d7f-8e3e-4f67-854b-0a1918d809c",
-          email: "renfilpe@hotmail.de",
+          email: "renfilpe@googlemail.com",
         }
       }
     }
@@ -123,12 +123,12 @@ exports.getUserData_2  = {
 // post admin action
 
 exports.postAdminAction_1 = {
-    body : "{\"itemId\" : \"61f01e85f77ae044c49c2e59\", \"actionType\" : \"deleteItem\"}",
+    body : "{\"itemId\" : \"62d9a23e89d29acd59256697\", \"actionType\" : \"removeIncStatus\"}",
     requestContext : {
       authorizer: { 
         jwt: {
           claims: {
-            email: "tetyos@testmail.com",
+            email: "renfilpe@googlemail.com",
             sub: "22686d7f-8e3e-4f67-854b-0a1918d809c3"
           }
         }

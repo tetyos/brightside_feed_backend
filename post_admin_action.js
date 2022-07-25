@@ -1,5 +1,6 @@
 const ObjectId = require('mongodb').ObjectId;
 const {URL} = require("url");
+const {postTweet} = require('./post_tweet');
 exports.postAdminAction = postAdminAction;
 
 let db = null;
@@ -98,6 +99,9 @@ async function removeIncStatus(itemId, itemDoc) {
       body: "Incubator status could not be removed. Internal server error.",
     };
   }
+
+  postTweet(itemId, itemDoc.url);
+
   return {
     statusCode: 200,
     body: JSON.stringify(updateResponse),
